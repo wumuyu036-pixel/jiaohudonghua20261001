@@ -338,8 +338,8 @@
 <div id="rotateTip">
   <div class="icon"></div>
   <div>请旋转手机<br>横屏体验游戏</div>
+  <div id="forceSkipTip" style="margin-top: 40px; background: #fff; color: #4AA5E8; padding: 10px 30px; border-radius: 30px; font-size: 22px; cursor: pointer; border: 2px solid #4AA5E8;">点我强制进入</div>
 </div>
-  <div id="stage">
     
     <!-- 加载动画层 -->
     <div id="loadingScreen">
@@ -601,39 +601,55 @@
 
     var scale = 1;
     function fit() {
-      var scaleX = window.innerWidth / 1920;
-      var scaleY = window.innerHeight / 1080;
-      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
-      
-      // 如果是手机且竖屏：隐藏游戏舞台，显示提示
-      if (isMobile && window.innerWidth < window.innerHeight) {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || w < 1024;
+
+      // 使用 matchMedia 更准确地判断当前是不是竖屏
+      var isPortrait = window.matchMedia("(orientation: portrait)").matches;
+
+      // 只有在手机 + 竖屏 + 屏幕确实没横过来的时候，才显示提示
+      if (isMobile && (isPortrait || w < h)) {
         document.getElementById('rotateTip').style.display = 'flex';
-        stage.style.display = 'none'; // 关键修复：隐藏舞台，防止撑爆屏幕
+        stage.style.display = 'none';
         return;
-      } else {
-        document.getElementById('rotateTip').style.display = 'none';
-        stage.style.display = 'block'; // 恢复显示
       }
 
-      // 横屏或电脑端的缩放逻辑
-      if (isMobile && window.innerWidth > window.innerHeight) {
+      // 只要不是竖屏（宽 > 高），就坚决隐藏提示，恢复游戏
+      document.getElementById('rotateTip').style.display = 'none';
+      stage.style.display = 'block';
+
+      // 缩放逻辑
+      var scaleX = w / 1920;
+      var scaleY = h / 1080;
+      if (isMobile && w > h) {
         scale = Math.max(scaleX, scaleY); // 手机横屏：铺满全屏
       } else {
-        scale = Math.min(scaleX, scaleY); // 电脑：完整显示
+        scale = Math.min(scaleX, scaleY); // 电脑/平板：完整显示
       }
       
       stage.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
     }
     
-    // 监听屏幕大小变化和手机旋转
+    // 加强监听，增加多次重试，防止手机浏览器数据更新延迟
     window.addEventListener('resize', fit);
     window.addEventListener('orientationchange', function() {
-      // 延迟执行，确保手机旋转完毕后拿到最新的宽高
-      setTimeout(fit, 200);
+      setTimeout(fit, 100);
+      setTimeout(fit, 300);
+      setTimeout(fit, 500);
     });
     fit();
+document.getElementById('forceSkipTip').addEventListener('click', function() {
+      document.getElementById('rotateTip').style.display = 'none';
+      stage.style.display = 'block';
+      // 强制按当前屏幕大小缩放
+      var scaleX = window.innerWidth / 1920;
+      var scaleY = window.innerHeight / 1080;
+      var forcedScale = Math.min(scaleX, scaleY); // 强行完整显示
+      stage.style.transform = 'translate(-50%, -50%) scale(' + forcedScale + ')';
+    });
 
-
+    
     // ==========================================
     // === 通用语音合成发音函数 ===
     // ==========================================
