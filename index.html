@@ -48,9 +48,7 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(-90deg); }
   }
-  @media screen and (orientation: portrait) and (max-width: 1024px) {
-    #portraitOverlay { display: flex; }
-  }
+  /* 移除纯CSS媒体查询，改用更精准的JS进行横竖屏检测，防止部分机型遮挡卡死 */
 
   /* =========================================
      === 1. 加载进度条与摩天轮动画界面 ===
@@ -602,6 +600,20 @@
     var scaleY = 1;
     // 检测是否为移动端
     var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    var portraitOverlay = document.getElementById('portraitOverlay');
+
+    function checkOrientation() {
+        if (!isMobile) {
+            portraitOverlay.style.display = 'none';
+            return;
+        }
+        // 使用 window.innerWidth 和 innerHeight 精确判断横竖屏
+        if (window.innerHeight > window.innerWidth) {
+            portraitOverlay.style.display = 'flex';
+        } else {
+            portraitOverlay.style.display = 'none';
+        }
+    }
 
     function fit() {
       var w = window.innerWidth;
@@ -618,8 +630,22 @@
       
       stage.style.transform = 'translate(-50%, -50%) scale(' + scaleX + ', ' + scaleY + ')';
     }
-    window.addEventListener('resize', fit);
+
+    // 增加细微延迟，确保系统横竖屏UI更新完毕后再测量
+    window.addEventListener('resize', function() {
+        setTimeout(function() {
+            fit();
+            checkOrientation();
+        }, 150);
+    });
+    window.addEventListener('orientationchange', function() {
+        setTimeout(function() {
+            fit();
+            checkOrientation();
+        }, 250);
+    });
     fit();
+    checkOrientation();
 
     // 移动端一键全屏接口（在用户点击开始时调用）
     function requestFullScreen() {
@@ -754,14 +780,16 @@
     // === 2. 加载界面：摩天轮及进度条联动 ===
     // ==========================================
     var loadDuration = 6800;
-    var loadStartTime = null;
+    var loadStartTime = Date.now();
     var fwWheel = document.getElementById('fwWheel');
     var fwCabins = document.querySelectorAll('.fw-cb');
     var cabinAngles = [0, 45, 90, 135, 180, 225, 270, 315];
 
-    function animateLoader(timestamp) {
-      if (!loadStartTime) loadStartTime = timestamp;
-      var elapsed = timestamp - loadStartTime;
+    function animateLoader() {
+      if (appState !== 'loading') return;
+      
+      // 使用系统时间 Date.now() 代替 rAF的参数，防止息屏或遮挡导致时间重置错乱
+      var elapsed = Date.now() - loadStartTime;
       var progress = Math.min((elapsed / loadDuration) * 100, 100);
       
       document.getElementById('pbFill').style.width = progress + '%';
@@ -779,15 +807,28 @@
       if (progress < 100) {
         requestAnimationFrame(animateLoader);
       } else {
-        loadingScreen.classList.add('hide');
-        startUI.style.display = 'flex';
-        void startUI.offsetWidth; 
-        startUI.classList.add('active'); 
-        appState = 'main';
-        setTimeout(function() { loadingScreen.style.display = 'none'; }, 500);
+        finishLoading();
       }
     }
+
+    function finishLoading() {
+      if (appState !== 'loading') return;
+      appState = 'main';
+      loadingScreen.classList.add('hide');
+      startUI.style.display = 'flex';
+      void startUI.offsetWidth; 
+      startUI.classList.add('active'); 
+      setTimeout(function() { loadingScreen.style.display = 'none'; }, 500);
+    }
+
     requestAnimationFrame(animateLoader);
+
+    // 终极防卡死保险：如果 7.5 秒后加载画面仍未关闭（应对部分iOS设备息屏或遮挡导致rAF永久挂起），强制进入开始界面
+    setTimeout(function() {
+      if (appState === 'loading') {
+        finishLoading();
+      }
+    }, loadDuration + 500);
 
     // ==========================================
     // === 3. 界面切换与视频处理 ===
