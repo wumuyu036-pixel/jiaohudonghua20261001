@@ -752,9 +752,14 @@
         }
     });
 
-    // 解析触控鼠标坐标并适配单独的 X/Y 缩放
+    // 修复：解析触控鼠标坐标并适配单独的 X/Y 缩放，确保 touchend 能正确获取松手坐标
     function toStage(e) {
-      var evt = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
+      var evt = e;
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        evt = e.changedTouches[0];
+      } else if (e.touches && e.touches.length > 0) {
+        evt = e.touches[0];
+      }
       var sr = stage.getBoundingClientRect();
       return { x: (evt.clientX - sr.left) / scaleX, y: (evt.clientY - sr.top) / scaleY };
     }
