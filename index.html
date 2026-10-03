@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>糖果小火车 · 数量对应</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='28' r='22' fill='%23FF8FB2'/%3E%3Cpath d='M32 6c10 6 10 18 0 22-10-4-10-16 0-22z' fill='%23fff' fill-opacity='.85'/%3E%3Crect x='30' y='46' width='4' height='14' rx='2' fill='%23B39DDB'/%3E%3C/svg%3E">
 <style>
@@ -14,9 +14,6 @@
     overflow: hidden;
     background: #16222e;
     font-family: "YouYuan", "幼圆", "Yuanti SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-    touch-action: none; /* 禁止手机滑动 */
-    -webkit-user-select: none; /* 禁止选中 */
-    user-select: none;
   }
 
   /* ===== 1920x1080 固定画幅，等比缩放适配任意屏幕 ===== */
@@ -30,14 +27,31 @@
     transform-origin: center center;
     overflow: hidden;
   }
-#rotateTip {
-    position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
-    background: #A5D6E7; z-index: 99999; display: none;
-    flex-direction: column; align-items: center; justify-content: center;
-    color: #fff; font-size: 28px; font-weight: bold; text-align: center;
+
+  /* ===== 移动端竖屏提示遮罩 ===== */
+  #portraitOverlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: #16222e; z-index: 10000;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    color: #FFF; font-size: 28px; font-weight: bold; text-align: center; letter-spacing: 2px;
   }
-  #rotateTip .icon { width: 80px; height: 80px; border: 6px solid #fff; border-radius: 12px; margin-bottom: 30px; animation: rotateAnim 2s infinite ease-in-out; }
-  @keyframes rotateAnim { 0% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } 100% { transform: rotate(0deg); } }
+  .phone-icon {
+    width: 60px; height: 110px; border: 5px solid #FFF; border-radius: 12px;
+    margin-bottom: 30px; position: relative;
+    animation: rotatePhone 1.5s ease-in-out infinite alternate;
+  }
+  .phone-icon::after {
+    content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+    width: 16px; height: 16px; background: #FFF; border-radius: 50%;
+  }
+  @keyframes rotatePhone {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(-90deg); }
+  }
+  @media screen and (orientation: portrait) and (max-width: 1024px) {
+    #portraitOverlay { display: flex; }
+  }
+
   /* =========================================
      === 1. 加载进度条与摩天轮动画界面 ===
      ========================================= */
@@ -147,7 +161,6 @@
   @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
   
   .role-title { display: flex; align-items: center; justify-content: center; gap: 20px; font-size: 64px; font-weight: 900; color: #fff; text-shadow: 0 6px 12px rgba(120, 160, 200, 0.6); margin-bottom: 60px; letter-spacing: 4px; }
-  /* 修改此处：将高度从 96px 再次放大1.5倍至 144px */
   .title-icon { height: 144px; width: auto; object-fit: contain; } 
   
   .role-options { display: flex; gap: 100px; }
@@ -248,7 +261,6 @@
   }
   .monster-inner .mouth.open { background: radial-gradient(circle at 35% 30%, #FF7A80, #FF4D5E 60%, #E03248); border: 4px solid #C22B3F; box-shadow: inset 0 3px 4px rgba(255,255,255,.35); }
 
-  /* --- 调整后的大型对话框与标签 --- */
   .bubble {
     position: absolute; left: 67%; top: 50%; width: auto; white-space: nowrap; min-height: 120px;
     background: #fff; border: 5px solid #8a5a3c; border-radius: 40px; z-index: 6; display: flex; align-items: center; justify-content: center;
@@ -258,7 +270,6 @@
   .bubble::before { content: ""; position: absolute; left: 23.2%; bottom: -15px; border: 12px solid transparent; border-top: 17px solid #fff; z-index: 1; }
   .bt { font-size: 42px; font-weight: 900; color: #5a3a2b; letter-spacing: 3px; }
   
-  /* ---- 修改放大 1倍 (200%尺寸) 后的进度标签样式 ---- */
   .prog {
     position: absolute; left: 50%; bottom: -80px; transform: translateX(-50%); background: #fff; border: 8px solid #FFB0C4; border-radius: 999px;
     padding: 8px 32px; font-size: 64px; font-weight: 900; color: #E56FA8; white-space: nowrap; box-shadow: 0 8px 20px rgba(200, 120, 150, .3);
@@ -334,12 +345,14 @@
 </style>
 </head>
 <body>
-<!-- 【添加竖屏提示】 -->
-<div id="rotateTip">
-  <div class="icon"></div>
-  <div>请旋转手机<br>横屏体验游戏</div>
-  <div id="forceSkipTip" style="margin-top: 40px; background: #fff; color: #4AA5E8; padding: 10px 30px; border-radius: 30px; font-size: 22px; cursor: pointer; border: 2px solid #4AA5E8;">点我强制进入</div>
-</div>
+
+  <!-- 竖屏锁提示层 -->
+  <div id="portraitOverlay">
+    <div class="phone-icon"></div>
+    <div>请旋转手机<br>在横屏模式下进行游玩</div>
+  </div>
+
+  <div id="stage">
     
     <!-- 加载动画层 -->
     <div id="loadingScreen">
@@ -348,16 +361,12 @@
         <div class="fw-wheel" id="fwWheel">
           <div class="fw-spoke" style="transform: rotate(0deg)"></div><div class="fw-spoke" style="transform: rotate(45deg)"></div>
           <div class="fw-spoke" style="transform: rotate(90deg)"></div><div class="fw-spoke" style="transform: rotate(135deg)"></div>
-          <!-- 修改处：xgs.png 添加内联样式边框颜色橙色 -->
           <div class="fw-cabin-anchor" style="transform: rotate(0deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: orange;"><img src="assets/xgs.png" alt="" style="width: 200px; margin-bottom: -30px;"></div></div>
           <div class="fw-cabin-anchor" style="transform: rotate(45deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy2.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
-          <!-- 修改处：candy9.png 添加内联样式边框颜色蓝色 -->
           <div class="fw-cabin-anchor" style="transform: rotate(90deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: #4AA5E8;"><img src="assets/candy9.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
           <div class="fw-cabin-anchor" style="transform: rotate(135deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy1.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
-          <!-- 修改处：candy8.png 添加内联样式边框颜色蓝色 -->
           <div class="fw-cabin-anchor" style="transform: rotate(180deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: #4AA5E8;"><img src="assets/candy8.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
           <div class="fw-cabin-anchor" style="transform: rotate(225deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy6.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
-          <!-- 修改处：candy7.png 添加内联样式边框颜色蓝色 -->
           <div class="fw-cabin-anchor" style="transform: rotate(270deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: #4AA5E8;"><img src="assets/candy7.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
           <div class="fw-cabin-anchor" style="transform: rotate(315deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy5.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
         </div>
@@ -401,7 +410,6 @@
       <div class="cloud c2"><img src="assets/cloud.png" alt=""></div>
       <div class="cloud c3"><img src="assets/cloud.png" alt=""></div>
       <div class="end-actions">
-        <!-- 修改了返回按钮的文本，并会在代码逻辑中跳回角色选择页 -->
         <div class="end-btn boy-color" id="btnBack">◀ 返回选择</div>
         <div class="end-btn" id="btnContinue">继续答题 ▶</div>
       </div>
@@ -410,9 +418,7 @@
     <!-- 视频动画容器 -->
     <div id="blackBase"></div>
     <div id="videoContainer">
-      <!-- 移至开始界面后的主过场动画 -->
       <video id="mainIntro" class="fullscreen-video" src="assets/intro.mp4" playsinline style="display:none;"></video>
-      <!-- 共享反馈视频 -->
       <video id="pfVideo" class="fullscreen-video" src="assets/pf2.mp4" playsinline style="display:none;"></video>
       <video id="nfVideo" class="fullscreen-video" src="assets/nf.mp4" playsinline style="display:none;"></video>
       <div class="vignette-overlay"></div>
@@ -544,28 +550,20 @@
   
   (function () {
     let voiceList = [];
-    try {
-        speechSynthesis.onvoiceschanged = () => {
-            voiceList = speechSynthesis.getVoices();
-        };
-    } catch(e) { console.warn("设备不支持 speechSynthesis", e); }
+    speechSynthesis.onvoiceschanged = ()=>{
+        voiceList = speechSynthesis.getVoices();
+    };
 
-    function playVoice(text) {
-        try {
-            if (!('speechSynthesis' in window)) return;
-            speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(text.toString());
-            u.pitch = 1.8;
-            u.rate = 0.82;
-            u.volume = 1;
-            if (voiceList.length > 0) {
-                const targetVoice = voiceList.find(v => v.name.includes("Kangkang")) || voiceList[0];
-                if (targetVoice) u.voice = targetVoice;
-            }
-            speechSynthesis.speak(u);
-        } catch(e) {
-            console.warn("播放语音失败，已忽略", e);
-        }
+    function playKidVoice(msg){
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(msg);
+        u.pitch = 1.4;
+        u.rate = 0.8;
+        u.volume = 1;
+        // 选中康康小男孩语音
+        const targetVoice = voiceList.find(v=>v.name.includes("Kangkang")) || voiceList[0];
+        if(targetVoice) u.voice = targetVoice;
+        speechSynthesis.speak(u);
     }
     // ===== 语音代码结束 =====
     
@@ -599,69 +597,54 @@
     var activeEngine = null;  
     var gameEngines = {};     
 
-    var scale = 1;
+    // ===== 移动端适配改造与X/Y独立缩放 =====
+    var scaleX = 1;
+    var scaleY = 1;
+    // 检测是否为移动端
+    var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
     function fit() {
       var w = window.innerWidth;
       var h = window.innerHeight;
-      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || w < 1024;
-
-      // 使用 matchMedia 更准确地判断当前是不是竖屏
-      var isPortrait = window.matchMedia("(orientation: portrait)").matches;
-
-      // 只有在手机 + 竖屏 + 屏幕确实没横过来的时候，才显示提示
-      if (isMobile && (isPortrait || w < h)) {
-        document.getElementById('rotateTip').style.display = 'flex';
-        stage.style.display = 'none';
-        return;
-      }
-
-      // 只要不是竖屏（宽 > 高），就坚决隐藏提示，恢复游戏
-      document.getElementById('rotateTip').style.display = 'none';
-      stage.style.display = 'block';
-
-      // 缩放逻辑
-      var scaleX = w / 1920;
-      var scaleY = h / 1080;
-      if (isMobile && w > h) {
-        scale = Math.max(scaleX, scaleY); // 手机横屏：铺满全屏
+      
+      if (isMobile) {
+        // 移动端：完全占满屏幕，解除等比限制拉伸填满
+        scaleX = w / 1920;
+        scaleY = h / 1080;
       } else {
-        scale = Math.min(scaleX, scaleY); // 电脑/平板：完整显示
+        // 电脑端：保持原样，维持 16:9 画幅防裁剪
+        scaleX = scaleY = Math.min(w / 1920, h / 1080);
       }
       
-      stage.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+      stage.style.transform = 'translate(-50%, -50%) scale(' + scaleX + ', ' + scaleY + ')';
     }
-    
-    // 加强监听，增加多次重试，防止手机浏览器数据更新延迟
     window.addEventListener('resize', fit);
-    window.addEventListener('orientationchange', function() {
-      setTimeout(fit, 100);
-      setTimeout(fit, 300);
-      setTimeout(fit, 500);
-    });
     fit();
-document.getElementById('forceSkipTip').addEventListener('click', function() {
-      document.getElementById('rotateTip').style.display = 'none';
-      stage.style.display = 'block';
-      // 强制按当前屏幕大小缩放
-      var scaleX = window.innerWidth / 1920;
-      var scaleY = window.innerHeight / 1080;
-      var forcedScale = Math.min(scaleX, scaleY); // 强行完整显示
-      stage.style.transform = 'translate(-50%, -50%) scale(' + forcedScale + ')';
-    });
 
-    
+    // 移动端一键全屏接口（在用户点击开始时调用）
+    function requestFullScreen() {
+      if (!isMobile) return; 
+      var docElm = document.documentElement;
+      if (docElm.requestFullscreen) { docElm.requestFullscreen(); }
+      else if (docElm.mozRequestFullScreen) { docElm.mozRequestFullScreen(); }
+      else if (docElm.webkitRequestFullScreen) { docElm.webkitRequestFullScreen(); }
+      else if (docElm.msRequestFullscreen) { docElm.msRequestFullscreen(); }
+
+      // 尝试强行锁定为横屏（部分移动端浏览器有效）
+      if(screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function(e) {});
+      }
+    }
+
     // ==========================================
     // === 通用语音合成发音函数 ===
     // ==========================================
-    
-
     function playVoice(text) {
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text.toString());
         u.pitch = 1.8;
         u.rate = 0.82;
         u.volume = 1;
-        // 优先匹配Kangkang康康小男孩语音
         const targetVoice = voiceList.find(v=>v.name.includes("Kangkang")) || voiceList[0];
         if(targetVoice) u.voice = targetVoice;
         speechSynthesis.speak(u);
@@ -694,7 +677,6 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
         clearTimeout(sysTimer);
     }
 
-    // ==== 处理右上角【跳过】逻辑 ====
     sysBtnSkip.addEventListener('click', function(e) {
         e.stopPropagation();
         hideSysBtns();
@@ -703,15 +685,14 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
         } else if(appState === 'intro' || appState === 'endVideo') {
             document.querySelector('.vignette-overlay').click();
         } else if(appState === 'role') {
-            btnGirl.click(); // 默认快捷选择女宝宝跳过
+            btnGirl.click(); 
         } else if(appState === 'game') {
-            if(activeEngine) activeEngine.btnOK.click(); // 跳过直接模拟答题完成
+            if(activeEngine) activeEngine.btnOK.click(); 
         } else if(appState === 'end') {
             btnContinue.click();
         }
     });
 
-    // ==== 处理左上角【返回】逻辑 ====
     sysBtnBack.addEventListener('click', function(e) {
         e.stopPropagation();
         hideSysBtns();
@@ -745,11 +726,11 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
         }
     });
 
-    // 全局移动端和鼠标坐标解构提取
+    // 解析触控鼠标坐标并适配单独的 X/Y 缩放
     function toStage(e) {
       var evt = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
       var sr = stage.getBoundingClientRect();
-      return { x: (evt.clientX - sr.left) / scale, y: (evt.clientY - sr.top) / scale };
+      return { x: (evt.clientX - sr.left) / scaleX, y: (evt.clientY - sr.top) / scaleY };
     }
 
     // ==========================================
@@ -844,7 +825,7 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
     function transitionFromVideo(transitionType, postCb) {
       if(transitionType === 'slide') {
           videoContainer.classList.add('slide-left');
-          blackBase.style.opacity = '0'; // 滑动时立刻去除遮罩配合底图展现
+          blackBase.style.opacity = '0'; 
           setTimeout(function () { 
             videoContainer.style.display = 'none'; 
             blackBase.style.display = 'none';
@@ -861,8 +842,9 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
       }
     }
 
-    // 点击开始游戏播放引言视频，再进入选角
+    // 开始游戏触发移动端全屏并进入动画
     btnStartGame.addEventListener('click', function() {
+      requestFullScreen(); // 请求全屏隐去状态栏等
       appState = 'intro';
       mainScreen.style.display = 'none';
       playVideo(mainIntro, function(tType) {
@@ -870,7 +852,6 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
            appState = 'role';
         });
         roleScreen.style.display = 'flex';
-        // 触发无缝滑入动画
         roleScreen.classList.remove('slide-in');
         void roleScreen.offsetWidth;
         roleScreen.classList.add('slide-in');
@@ -885,7 +866,7 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
       startUI.classList.add('fade-out');
       setTimeout(function() { 
         startUI.style.display = 'none'; 
-        roleScreen.style.display = 'none'; // 为后续返回做清除准备
+        roleScreen.style.display = 'none'; 
       }, 400);
       
       document.getElementById('gameScene_girl').style.display = (mode === 'girl') ? 'block' : 'none';
@@ -897,9 +878,8 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
     btnBoy.addEventListener('click', function() { launchMode('boy'); });
     btnGirl.addEventListener('click', function() { launchMode('girl'); });
 
-    // 点击屏幕中原本的视口阴影跳过视频 (兼容双重跳过机制)
     document.querySelector('.vignette-overlay').addEventListener('click', function(e) {
-       e.stopPropagation(); // 阻止触发全局 sysUI
+       e.stopPropagation(); 
        if(activeVideo && activeVideo.style.display === 'block' && !activeVideo.paused) { 
          activeVideo.pause(); 
          var isSlide = videoContainer.classList.contains('transition-slide');
@@ -914,7 +894,6 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
             void roleScreen.offsetWidth;
             roleScreen.classList.add('slide-in');
          } else {
-            // 是结果反馈视频跳过，则直接出结果面板
             transitionFromVideo(tType, function() {
                 appState = 'end';
                 endScreen.style.display = 'flex';
@@ -923,21 +902,18 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
        }
     }); 
 
-    // 结束界面返回按钮 —— 返回选角界面
     btnBack.addEventListener('click', function() {
       endScreen.style.display = 'none';
       activeEngine.resetGameEngine();
       document.getElementById('gameScene_girl').style.display = 'none';
       document.getElementById('gameScene_boy').style.display = 'none';
       
-      // 返回角色选择
       mainScreen.style.display = 'none';
       roleScreen.style.display = 'flex';
       
       startUI.style.display = 'flex';
       startUI.classList.remove('fade-out');
       
-      // 添加滑入效果让返回更自然
       roleScreen.classList.remove('slide-in');
       void roleScreen.offsetWidth;
       roleScreen.classList.add('slide-in');
@@ -954,9 +930,8 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
 
 
     // ==========================================
-    // === 4. 游戏引擎工厂 (双实例无变动) ===
+    // === 4. 游戏引擎工厂 ===
     // ==========================================
-    
     function buildGameEngine(suffix) {
         var eng = {
             targetN: 1 + Math.floor(Math.random() * 10),
@@ -1008,15 +983,13 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
             eng.renderBalls();
             eng.gameUI.style.display = 'block';
             
-            // 开局立刻播报“好吃！”
             playVoice('好吃！');
 
-            // 原本的 2秒 现调整为 5秒 的等待停留
             setTimeout(function() {
                 if (!eng.complete) {
                     var reqText = '请给我' + eng.targetN + '个糖果';
                     eng.bubbleText.textContent = reqText;
-                    playVoice(reqText); // 播报：“请给我X个糖果”
+                    playVoice(reqText);
                     eng.mProg.style.opacity = '1'; 
                 }
             }, 5000); 
@@ -1059,7 +1032,11 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
         eng.mouthPos = function() {
             var mr = eng.mouth.getBoundingClientRect();
             var sr = stage.getBoundingClientRect();
-            return { x: (mr.left - sr.left) / scale + (mr.width / scale) * 0.5, y: (mr.top  - sr.top) / scale + (mr.height / scale) * 0.5 };
+            // 采用单独适配的 scaleX 与 scaleY 解决偏移碰撞判定
+            return { 
+                x: (mr.left - sr.left) / scaleX + (mr.width / scaleX) * 0.5, 
+                y: (mr.top  - sr.top) / scaleY + (mr.height / scaleY) * 0.5 
+            };
         };
 
         function handleHeadClick(e) {
@@ -1068,8 +1045,8 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
             if (playP !== undefined) playP.catch(function(err){});
             var hr = eng.headWrap.getBoundingClientRect();
             var sr = stage.getBoundingClientRect();
-            var originX = (hr.left - sr.left) / scale + (hr.width / scale) * 0.15;
-            var originY = (hr.top - sr.top) / scale + (hr.height / scale) * 0.1;
+            var originX = (hr.left - sr.left) / scaleX + (hr.width / scaleX) * 0.15;
+            var originY = (hr.top - sr.top) / scaleY + (hr.height / scaleY) * 0.1;
             for (let i = 0; i < 5; i++) {
                 setTimeout(function() {
                     var steam = document.createElement('div');
@@ -1161,7 +1138,6 @@ document.getElementById('forceSkipTip').addEventListener('click', function() {
                 var ecsSound = new Audio('assets/ecs.mp3');
                 var playEcs = ecsSound.play();
                 var currentCount = eng.collected; 
-                // 统一复用 playVoice 进行数字播报
                 if (playEcs !== undefined) {
                     playEcs.then(function() { ecsSound.onended = function() { playVoice(currentCount); }; })
                            .catch(function(err){ playVoice(currentCount); });
