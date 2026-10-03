@@ -544,21 +544,29 @@
   
   (function () {
     let voiceList = [];
-speechSynthesis.onvoiceschanged = ()=>{
-    voiceList = speechSynthesis.getVoices();
-};
+    try {
+        speechSynthesis.onvoiceschanged = () => {
+            voiceList = speechSynthesis.getVoices();
+        };
+    } catch(e) { console.warn("设备不支持 speechSynthesis", e); }
 
-function playKidVoice(msg){
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(msg);
-    u.pitch = 1.4;
-    u.rate = 0.8;
-    u.volume = 1;
-    // 选中康康小男孩语音
-    const targetVoice = voiceList.find(v=>v.name.includes("Kangkang")) || voiceList[0];
-    if(targetVoice) u.voice = targetVoice;
-    speechSynthesis.speak(u);
-}
+    function playVoice(text) {
+        try {
+            if (!('speechSynthesis' in window)) return;
+            speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text.toString());
+            u.pitch = 1.8;
+            u.rate = 0.82;
+            u.volume = 1;
+            if (voiceList.length > 0) {
+                const targetVoice = voiceList.find(v => v.name.includes("Kangkang")) || voiceList[0];
+                if (targetVoice) u.voice = targetVoice;
+            }
+            speechSynthesis.speak(u);
+        } catch(e) {
+            console.warn("播放语音失败，已忽略", e);
+        }
+    }
     // ===== 语音代码结束 =====
     
     var stage   = document.getElementById('stage');
@@ -595,34 +603,32 @@ function playKidVoice(msg){
     function fit() {
       var scaleX = window.innerWidth / 1920;
       var scaleY = window.innerHeight / 1080;
-      
-      // 判断是否为移动端设备
       var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
       
-      // 如果是手机且处于竖屏状态，显示提示并停止缩放
+      // 如果是手机且竖屏：隐藏游戏舞台，显示提示
       if (isMobile && window.innerWidth < window.innerHeight) {
         document.getElementById('rotateTip').style.display = 'flex';
+        stage.style.display = 'none'; // 关键修复：隐藏舞台，防止撑爆屏幕
         return;
       } else {
         document.getElementById('rotateTip').style.display = 'none';
+        stage.style.display = 'block'; // 恢复显示
       }
 
-      // 核心判断逻辑：
+      // 横屏或电脑端的缩放逻辑
       if (isMobile && window.innerWidth > window.innerHeight) {
-        // 【手机横屏】：使用 Math.max 强行放大铺满屏幕（会稍微裁剪边缘，确保无黑边）
-        scale = Math.max(scaleX, scaleY);
+        scale = Math.max(scaleX, scaleY); // 手机横屏：铺满全屏
       } else {
-        // 【电脑/平板】：使用 Math.min 完整显示画面（保证所有UI元素都在安全区内）
-        scale = Math.min(scaleX, scaleY);
+        scale = Math.min(scaleX, scaleY); // 电脑：完整显示
       }
       
       stage.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
     }
     
-    // 监听屏幕大小变化和手机旋转事件
+    // 监听屏幕大小变化和手机旋转
     window.addEventListener('resize', fit);
     window.addEventListener('orientationchange', function() {
-      // 手机旋转时延迟一点点执行，确保获取到最新的宽高
+      // 延迟执行，确保手机旋转完毕后拿到最新的宽高
       setTimeout(fit, 200);
     });
     fit();
