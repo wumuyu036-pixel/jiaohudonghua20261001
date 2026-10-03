@@ -48,7 +48,6 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(-90deg); }
   }
-  /* 移除纯CSS媒体查询，改用更精准的JS进行横竖屏检测，防止部分机型遮挡卡死 */
 
   /* =========================================
      === 1. 加载进度条与摩天轮动画界面 ===
@@ -540,8 +539,8 @@
       <div id="sysBtnSkip" class="sys-btn right">跳过</div>
     </div>
 
-    <!-- 背景音乐：循环播放（自动播放） -->
-    <audio id="bgm" src="assets/bgm.mp3" loop autoplay></audio>
+    <!-- 背景音乐：保留标签源 -->
+    <audio id="bgm" src="assets/bgm.mp3" loop></audio>
   </div>
 
 <script>
@@ -558,16 +557,12 @@
         u.pitch = 1.4;
         u.rate = 0.8;
         u.volume = 1;
-        // 选中康康小男孩语音
         const targetVoice = voiceList.find(v=>v.name.includes("Kangkang")) || voiceList[0];
         if(targetVoice) u.voice = targetVoice;
         speechSynthesis.speak(u);
     }
-    // ===== 语音代码结束 =====
     
     var stage   = document.getElementById('stage');
-    
-    // UI 控制变量
     var loadingScreen = document.getElementById('loadingScreen');
     var startUI = document.getElementById('startUI');
     var mainScreen = document.getElementById('mainScreen');
@@ -580,7 +575,7 @@
     var btnBack = document.getElementById('btnBack');
     var btnContinue = document.getElementById('btnContinue');
 
-    // 视频与音频
+    // 视频与音频对象提取为全局，方便统一管理和预加载解锁
     var bgm = document.getElementById('bgm');
     var videoContainer = document.getElementById('videoContainer');
     var blackBase = document.getElementById('blackBase');
@@ -588,17 +583,44 @@
     var pfVideo = document.getElementById('pfVideo');
     var nfVideo = document.getElementById('nfVideo');
     var trainSound = new Audio('assets/ts.mp3'); 
+    var ecsSound = new Audio('assets/ecs.mp3'); // 将吃糖果的音效提取到全局实例化
 
-    // 全局状态与引擎变量
-    var appState = 'loading'; // 状态: loading, main, intro, role, game, endVideo, end
+    // ==========================================
+    // === 终极移动端音频预热与解锁方案 ===
+    // ==========================================
+    var isAudioUnlocked = false;
+    function unlockAllMedia() {
+        if (isAudioUnlocked) return;
+        isAudioUnlocked = true;
+
+        // 解锁BGM
+        bgm.volume = 0.5;
+        bgm.play().catch(function(){});
+
+        // 预热音效：播放并立即暂停，骗过移动端的拦截机制
+        trainSound.play().then(function(){ trainSound.pause(); trainSound.currentTime = 0; }).catch(function(){});
+        ecsSound.play().then(function(){ ecsSound.pause(); ecsSound.currentTime = 0; }).catch(function(){});
+
+        // 预热语音合成 API
+        var silentUtterance = new SpeechSynthesisUtterance('');
+        silentUtterance.volume = 0;
+        speechSynthesis.speak(silentUtterance);
+
+        document.removeEventListener('touchstart', unlockAllMedia, true);
+        document.removeEventListener('click', unlockAllMedia, true);
+    }
+    // 监听全局第一次接触，解锁所有媒体限制
+    document.addEventListener('touchstart', unlockAllMedia, true);
+    document.addEventListener('click', unlockAllMedia, true);
+
+
+    var appState = 'loading'; 
     var currentMode = 'girl'; 
     var activeEngine = null;  
     var gameEngines = {};     
 
-    // ===== 移动端适配改造与X/Y独立缩放 =====
     var scaleX = 1;
     var scaleY = 1;
-    // 检测是否为移动端
     var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     var portraitOverlay = document.getElementById('portraitOverlay');
 
@@ -607,7 +629,6 @@
             portraitOverlay.style.display = 'none';
             return;
         }
-        // 使用 window.innerWidth 和 innerHeight 精确判断横竖屏
         if (window.innerHeight > window.innerWidth) {
             portraitOverlay.style.display = 'flex';
         } else {
@@ -620,18 +641,15 @@
       var h = window.innerHeight;
       
       if (isMobile) {
-        // 移动端：完全占满屏幕，解除等比限制拉伸填满
         scaleX = w / 1920;
         scaleY = h / 1080;
       } else {
-        // 电脑端：保持原样，维持 16:9 画幅防裁剪
         scaleX = scaleY = Math.min(w / 1920, h / 1080);
       }
       
       stage.style.transform = 'translate(-50%, -50%) scale(' + scaleX + ', ' + scaleY + ')';
     }
 
-    // 增加细微延迟，确保系统横竖屏UI更新完毕后再测量
     window.addEventListener('resize', function() {
         setTimeout(function() {
             fit();
@@ -647,7 +665,6 @@
     fit();
     checkOrientation();
 
-    // 移动端一键全屏接口（在用户点击开始时调用）
     function requestFullScreen() {
       if (!isMobile) return; 
       var docElm = document.documentElement;
@@ -656,15 +673,11 @@
       else if (docElm.webkitRequestFullScreen) { docElm.webkitRequestFullScreen(); }
       else if (docElm.msRequestFullscreen) { docElm.msRequestFullscreen(); }
 
-      // 尝试强行锁定为横屏（部分移动端浏览器有效）
       if(screen.orientation && screen.orientation.lock) {
           screen.orientation.lock('landscape').catch(function(e) {});
       }
     }
 
-    // ==========================================
-    // === 通用语音合成发音函数 ===
-    // ==========================================
     function playVoice(text) {
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text.toString());
@@ -676,9 +689,6 @@
         speechSynthesis.speak(u);
     }
 
-    // ==========================================
-    // === 0. 全局点击呼出 返回/跳过 系统 ===
-    // ==========================================
     var sysUI = document.getElementById('sysUI');
     var sysBtnBack = document.getElementById('sysBtnBack');
     var sysBtnSkip = document.getElementById('sysBtnSkip');
@@ -752,7 +762,6 @@
         }
     });
 
-    // 修复：解析触控鼠标坐标并适配单独的 X/Y 缩放，确保 touchend 能正确获取松手坐标
     function toStage(e) {
       var evt = e;
       if (e.changedTouches && e.changedTouches.length > 0) {
@@ -764,26 +773,6 @@
       return { x: (evt.clientX - sr.left) / scaleX, y: (evt.clientY - sr.top) / scaleY };
     }
 
-    // ==========================================
-    // === 1. 背景音乐：强行开局自动播放 ===
-    // ==========================================
-    bgm.volume = 0.5;
-    var playPromise = bgm.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(function () {
-        var startBgm = function () {
-          bgm.play().catch(function(){});
-          document.removeEventListener('mousedown', startBgm);
-          document.removeEventListener('touchstart', startBgm);
-        };
-        document.addEventListener('mousedown', startBgm);
-        document.addEventListener('touchstart', startBgm);
-      });
-    }
-
-    // ==========================================
-    // === 2. 加载界面：摩天轮及进度条联动 ===
-    // ==========================================
     var loadDuration = 6800;
     var loadStartTime = Date.now();
     var fwWheel = document.getElementById('fwWheel');
@@ -792,8 +781,6 @@
 
     function animateLoader() {
       if (appState !== 'loading') return;
-      
-      // 使用系统时间 Date.now() 代替 rAF的参数，防止息屏或遮挡导致时间重置错乱
       var elapsed = Date.now() - loadStartTime;
       var progress = Math.min((elapsed / loadDuration) * 100, 100);
       
@@ -828,16 +815,10 @@
 
     requestAnimationFrame(animateLoader);
 
-    // 终极防卡死保险：如果 7.5 秒后加载画面仍未关闭（应对部分iOS设备息屏或遮挡导致rAF永久挂起），强制进入开始界面
     setTimeout(function() {
-      if (appState === 'loading') {
-        finishLoading();
-      }
+      if (appState === 'loading') { finishLoading(); }
     }, loadDuration + 500);
 
-    // ==========================================
-    // === 3. 界面切换与视频处理 ===
-    // ==========================================
     var activeVideo = null;
     function playVideo(vidElement, callback, transitionType) {
       activeVideo = vidElement;
@@ -888,15 +869,12 @@
       }
     }
 
-    // 开始游戏触发移动端全屏并进入动画
     btnStartGame.addEventListener('click', function() {
-      requestFullScreen(); // 请求全屏隐去状态栏等
+      requestFullScreen();
       appState = 'intro';
       mainScreen.style.display = 'none';
       playVideo(mainIntro, function(tType) {
-        transitionFromVideo(tType, function(){
-           appState = 'role';
-        });
+        transitionFromVideo(tType, function(){ appState = 'role'; });
         roleScreen.style.display = 'flex';
         roleScreen.classList.remove('slide-in');
         void roleScreen.offsetWidth;
@@ -932,9 +910,7 @@
          var tType = isSlide ? 'slide' : 'iris';
 
          if(activeVideo.id === 'mainIntro') {
-            transitionFromVideo(tType, function(){
-                appState = 'role';
-            });
+            transitionFromVideo(tType, function(){ appState = 'role'; });
             roleScreen.style.display = 'flex';
             roleScreen.classList.remove('slide-in');
             void roleScreen.offsetWidth;
@@ -1078,7 +1054,6 @@
         eng.mouthPos = function() {
             var mr = eng.mouth.getBoundingClientRect();
             var sr = stage.getBoundingClientRect();
-            // 采用单独适配的 scaleX 与 scaleY 解决偏移碰撞判定
             return { 
                 x: (mr.left - sr.left) / scaleX + (mr.width / scaleX) * 0.5, 
                 y: (mr.top  - sr.top) / scaleY + (mr.height / scaleY) * 0.5 
@@ -1087,6 +1062,7 @@
 
         function handleHeadClick(e) {
             if (eng.complete) return;
+            trainSound.currentTime = 0; // 重置进度以便可连续触发
             var playP = trainSound.play();
             if (playP !== undefined) playP.catch(function(err){});
             var hr = eng.headWrap.getBoundingClientRect();
@@ -1181,7 +1157,8 @@
                 eng.collected++;
                 eng.progEl.textContent = eng.collected + '/' + eng.targetN;
                 
-                var ecsSound = new Audio('assets/ecs.mp3');
+                // 使用已经通过 unlockAllMedia 解锁的全局 ecsSound
+                ecsSound.currentTime = 0; 
                 var playEcs = ecsSound.play();
                 var currentCount = eng.collected; 
                 if (playEcs !== undefined) {
