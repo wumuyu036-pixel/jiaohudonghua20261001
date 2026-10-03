@@ -1,0 +1,1181 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>糖果小火车 · 数量对应</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='28' r='22' fill='%23FF8FB2'/%3E%3Cpath d='M32 6c10 6 10 18 0 22-10-4-10-16 0-22z' fill='%23fff' fill-opacity='.85'/%3E%3Crect x='30' y='46' width='4' height='14' rx='2' fill='%23B39DDB'/%3E%3C/svg%3E">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #16222e;
+    font-family: "YouYuan", "幼圆", "Yuanti SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  /* ===== 1920x1080 固定画幅，等比缩放适配任意屏幕 ===== */
+  #stage {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1920px;
+    height: 1080px;
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
+    overflow: hidden;
+  }
+
+  /* =========================================
+     === 1. 加载进度条与摩天轮动画界面 ===
+     ========================================= */
+  #loadingScreen {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgb(175, 216, 232);
+    z-index: 300; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease, visibility 0.5s;
+  }
+  #loadingScreen.hide { opacity: 0; visibility: hidden; }
+
+  .ferris-wheel-container { position: relative; width: 600px; height: 700px; margin-bottom: 60px; }
+  .fw-stand {
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 280px; height: 400px; background: #D5AD88;
+    clip-path: polygon(40% 0, 60% 0, 100% 100%, 0% 100%); z-index: 1;
+  }
+  .fw-wheel {
+    position: absolute; top: 0; left: 50%; margin-left: -300px; width: 600px; height: 600px;
+    border-radius: 50%; border: 20px solid #FFF;
+    box-shadow: 0 0 0 12px #FCE8B2, inset 0 0 0 12px #FCE8B2; z-index: 2;
+  }
+  .fw-center {
+    position: absolute; top: 44%; left: 50%; width: 60px; height: 60px;
+    background: #FFF; border: 10px solid #FCE8B2; border-radius: 50%;
+    transform: translate(-50%, -50%); z-index: 4;
+  }
+  .fw-spoke { position: absolute; top: 50%; left: 0; width: 100%; height: 12px; background: #FFF; margin-top: -6px; }
+  .fw-cabin-anchor { position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: 3; }
+  .fw-cabin {
+    position: absolute; width: 160px; height: 180px; margin-left: -80px; margin-top: -90px;
+    background: #FFF; border: 10px solid #FFB0C4; border-radius: 68px 68px 24px 24px;
+    display: flex; justify-content: center; align-items: flex-end; padding-bottom: 16px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+  }
+
+  .loading-prog-wrap { position: relative; width: 700px; height: 46px; margin-top: 40px; }
+  .loading-prog-bg {
+    width: 100%; height: 100%; background: #FFF; border: 5px solid #8A5A3C;
+    border-radius: 23px; overflow: hidden; box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.45);
+  }
+  .loading-prog-fill {
+    width: 0%; height: 100%; border-radius: 18px;
+    background: repeating-linear-gradient(-45deg, #FDE17A, #FDE17A 20px, #FFF2B2 20px, #FFF2B2 40px);
+  }
+  .loading-prog-head {
+    position: absolute; top: 50%; left: 0%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; z-index: 5;
+  }
+  .loading-prog-text {
+    font-size: 38px; font-weight: 900; color: #FF7A80; 
+    text-shadow: 3px 3px 0 #FFF, -3px -3px 0 #FFF, 3px -3px 0 #FFF, -3px 3px 0 #FFF, 0 6px 10px rgba(0,0,0,0.25);
+    margin-bottom: 0px; z-index: 6;
+  }
+  
+  .loading-prog-head img { 
+    width: 140px; margin-top: -30px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); z-index: 5; 
+    transform-origin: center bottom; animation: progHeadSway 0.5s ease-in-out infinite alternate;
+  }
+  @keyframes progHeadSway { 0% { transform: rotate(-12deg); } 100% { transform: rotate(12deg); } }
+
+  /* =========================================
+     === 2. 开始界面与角色选择界面 ===
+     ========================================= */
+  #startUI {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 200; background: #A5D6E7; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    visibility: hidden; opacity: 0; transition: opacity 0.5s ease, visibility 0.5s;
+  }
+  #startUI.active { visibility: visible; opacity: 1; }
+  #startUI.fade-out { opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+
+  .start-bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; pointer-events: none; }
+  
+  #mainScreen { position: absolute; width: 100%; height: 100%; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+  .title-wrap { position: absolute; top: 12%; transform: translateY(-120vh); }
+  .main-title { width: 1500px; transform-origin: center center; }
+  .btn-wrap { position: absolute; top: 60%; width: 500px; opacity: 0; transform: translateY(100px); }
+
+  #startUI.active .title-wrap { animation: titleDrop 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  #startUI.active .main-title { animation: titleSway 4s ease-in-out 1.2s infinite alternate; }
+  #startUI.active .btn-wrap { animation: btnRise 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s forwards; }
+
+  @keyframes titleDrop { 0% { transform: translateY(-120vh); } 100% { transform: translateY(0); } }
+  @keyframes titleSway { 0% { transform: rotate(0deg) scale(1); } 33% { transform: rotate(2deg) scale(1.02); } 66% { transform: rotate(-2deg) scale(0.98); } 100% { transform: rotate(0deg) scale(1); } }
+  @keyframes btnRise { 0% { opacity: 0; transform: translateY(100px); } 100% { opacity: 1; transform: translateY(0); } }
+
+  .start-btn { width: 100%; display: block; cursor: pointer; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 8px 15px rgba(200, 100, 0, 0.2)); }
+  .start-btn:hover { transform: scale(1.15) translateY(-5px); }
+  .start-btn:active { transform: scale(0.95); transition: transform 0.1s; }
+
+  #roleScreen {
+    position: absolute; width: 100%; height: 100%; z-index: 3; display: none; 
+    flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(8px);
+  }
+  
+  /* 角色选择界面无缝滑入动画 */
+  #roleScreen.slide-in { animation: slideInRight 0.8s ease-in-out forwards; }
+  @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  
+  .role-title { display: flex; align-items: center; justify-content: center; gap: 20px; font-size: 64px; font-weight: 900; color: #fff; text-shadow: 0 6px 12px rgba(120, 160, 200, 0.6); margin-bottom: 60px; letter-spacing: 4px; }
+  /* 修改此处：将高度从 96px 再次放大1.5倍至 144px */
+  .title-icon { height: 144px; width: auto; object-fit: contain; } 
+  
+  .role-options { display: flex; gap: 100px; }
+  .role-card {
+    width: 280px; height: 340px; background: #fff; border-radius: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 8px solid #fff; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .role-card .r-icon { font-size: 80px; margin-bottom: 20px; }
+  .role-card .r-text { font-size: 42px; font-weight: 900; }
+  .role-card.boy { border-color: #A5D6E7; color: #4AA5E8; }
+  .role-card.girl { border-color: #FFB0C4; color: #E56FA8; }
+  .role-card:hover { transform: translateY(-20px) scale(1.08); box-shadow: 0 25px 45px rgba(0,0,0,0.2); }
+  .role-card:active { transform: scale(0.95); }
+
+  /* =========================================
+     === 3. 视频与过场过渡遮罩 ===
+     ========================================= */
+  #blackBase {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    background: #000; z-index: 240; display: none; transition: opacity 0.3s ease-out;
+  }
+
+  #videoContainer {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    z-index: 250; background: #000; display: none; 
+  }
+  
+  /* 结算动画缩放过渡 */
+  .transition-iris { clip-path: circle(150% at 50% 50%); transition: clip-path 0.5s ease-in; }
+  .transition-iris.shrink-iris { clip-path: circle(0% at 50% 50%); }
+
+  /* 开场动画向左平移过渡 */
+  .transition-slide { transform: translateX(0); transition: transform 0.8s ease-in-out; }
+  .transition-slide.slide-left { transform: translateX(-100%); }
+
+  .fullscreen-video { width: 100%; height: 100%; object-fit: cover; pointer-events: auto; }
+
+  .vignette-overlay {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    box-shadow: inset 0 0 250px rgba(0,0,0,0.85); pointer-events: none; z-index: 101;
+  }
+
+  /* =========================================
+     === 4. 游戏主舞台与新增UI界面 ===
+     ========================================= */
+  .bg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; z-index: 1; user-select: none; pointer-events: none; }
+
+  .cloud { position: absolute; z-index: 2; pointer-events: none; animation: driftX linear infinite alternate; }
+  .cloud img { width: 100%; display: block; user-select: none; pointer-events: none; }
+  .cloud.c1 { left: 10.5%; top: 27%;  width: 12%; animation-duration: 6s; }
+  .cloud.c2 { left: 51.5%; top: 41%; width: 7.5%;  animation-duration: 8s; animation-delay: -2s; }
+  .cloud.c3 { left: 64.5%; top: 12.5%; width: 17%; animation-duration: 5s; animation-delay: -3.5s; }
+  @keyframes driftX { from { transform: translateX(-80px); } to { transform: translateX(80px); } }
+
+  /* 统一场景包裹器 */
+  .game-scene {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    display: none; z-index: 5;
+  }
+
+  .train { position: absolute; left: 13.5%; top: 67%; width: 75%; display: flex; align-items: flex-end; z-index: 3; }
+  .head-wrap { width: 28%; position: relative; cursor: pointer; }
+  .head-wrap > img:not(.candy) { width: 100%; display: block; pointer-events: none; }
+  .car { width: 18%; position: relative; cursor: pointer; } 
+  .car .car-bg { width: 100%; display: block; position: relative; z-index: 1; pointer-events: auto; }
+  .car .car-front { width: 100%; display: block; position: absolute; left: 0; top: 6%; z-index: 4; pointer-events: none; }
+
+  .candy {
+    position: absolute; width: 130px; height: 130px; z-index: 2; cursor: grab; user-select: none;
+    filter: drop-shadow(0 3px 3px rgba(90, 60, 40, .25)); transition: transform .12s ease;
+  }
+  .candy:hover { transform: scale(1.1); }
+  .candy img { width: 100%; height: 100%; display: block; pointer-events: none; }
+
+  .monster { position: absolute; left: 53%; top: 45%; width: 500px; margin-left: -220px; z-index: 2; pointer-events: none; }
+  
+  .m-prog {
+    position: absolute; top: 20px; left: 40.5%; transform: translateX(-50%); display: flex; gap: 12px; z-index: 6;
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  .m-ball {
+    width: 26px; height: 26px; background: #fff; border: 3px solid #FFB0C4; border-radius: 50%;
+    box-shadow: 0 3px 6px rgba(200, 120, 150, 0.3); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .m-ball.active { background: #FF4D5E; border-color: #C22B3F; transform: scale(1.15); }
+
+  .monster-inner { position: relative; width: 100%; transform-origin: 50% 100%; transition: transform .18s ease-out; }
+  .monster-inner.happy-dance { animation: happyDance 0.5s ease-in-out infinite alternate; }
+  @keyframes happyDance { 0% { transform: rotate(-8deg) scale(1.05); } 100% { transform: rotate(8deg) scale(1.05); } }
+
+  .monster-inner .m-img { width: 100%; display: block; }
+  .monster-inner .eye { position: absolute; width: 32px; height: 42px; background: #000; border-radius: 50%; top: 38%; }
+  .monster-inner .eye.l { left: 30%; margin-top: -25px; margin-left: -18px; }
+  .monster-inner .eye.r { left: 50%; margin-top: -25px; margin-left: -18px; }
+  .monster-inner .mouth {
+    position: absolute; left: 40%; top: 40%; width: 30px; height: 30px; margin-left: -18px; margin-top: -18px; background: #FF94A9; border-radius: 50%;
+    border: 0px solid transparent; transform: scale(1); transition: transform .15s ease-out, background .15s, border .15s, box-shadow .15s; z-index: 4;
+  }
+  .monster-inner .mouth.open { background: radial-gradient(circle at 35% 30%, #FF7A80, #FF4D5E 60%, #E03248); border: 4px solid #C22B3F; box-shadow: inset 0 3px 4px rgba(255,255,255,.35); }
+
+  /* --- 调整后的大型对话框与标签 --- */
+  .bubble {
+    position: absolute; left: 67%; top: 50%; width: auto; white-space: nowrap; min-height: 120px;
+    background: #fff; border: 5px solid #8a5a3c; border-radius: 40px; z-index: 6; display: flex; align-items: center; justify-content: center;
+    padding: 20px 45px 35px; box-shadow: 0 10px 20px rgba(120, 80, 50, .3); user-select: none; transition: all 0.3s ease;
+  }
+  .bubble::after { content: ""; position: absolute; left: 22%; bottom: -24px; border: 15px solid transparent; border-top: 20px solid #8a5a3c; }
+  .bubble::before { content: ""; position: absolute; left: 23.2%; bottom: -15px; border: 12px solid transparent; border-top: 17px solid #fff; z-index: 1; }
+  .bt { font-size: 42px; font-weight: 900; color: #5a3a2b; letter-spacing: 3px; }
+  
+  /* ---- 修改放大 1倍 (200%尺寸) 后的进度标签样式 ---- */
+  .prog {
+    position: absolute; left: 50%; bottom: -80px; transform: translateX(-50%); background: #fff; border: 8px solid #FFB0C4; border-radius: 999px;
+    padding: 8px 32px; font-size: 64px; font-weight: 900; color: #E56FA8; white-space: nowrap; box-shadow: 0 8px 20px rgba(200, 120, 150, .3);
+  }
+
+  .gameUI {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 50; pointer-events: none; display: none; 
+  }
+  .game-action-btn {
+    position: absolute; bottom: -40px; width: 300px; cursor: pointer; pointer-events: auto;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 8px 15px rgba(0,0,0,0.2));
+  }
+  .game-action-btn:hover { transform: scale(1.15) translateY(-5px); }
+  .game-action-btn:active { transform: scale(0.95); transition: transform 0.1s; }
+  .left-btn { left: 450px; }
+  .right-btn { right: 450px; }
+
+  /* ---- 结算后过渡 UI 界面 ---- */
+  #endScreen {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    z-index: 200; background: #A5D6E7; display: none; flex-direction: column; align-items: center; justify-content: center;
+    animation: fadeIn 0.5s ease forwards;
+  }
+  .end-actions { display: flex; gap: 80px; z-index: 10; }
+  .end-btn {
+    background: #FFF; border: 8px solid #FFB0C4; border-radius: 60px; padding: 20px 60px;
+    font-size: 42px; font-weight: 900; color: #E56FA8; cursor: pointer;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .end-btn.boy-color { border-color: #A5D6E7; color: #4AA5E8; }
+  .end-btn:hover { transform: translateY(-10px) scale(1.05); box-shadow: 0 25px 45px rgba(0,0,0,0.2); }
+  .end-btn:active { transform: scale(0.95); }
+
+  /* =========================================
+     === 5. 拖拽糖果特效层 ===
+     ========================================= */
+  .fx-layer { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 7; pointer-events: none; }
+  .drag-candy {
+    position: absolute; width: 130px; height: 130px; margin-left: -65px; margin-top: -65px; cursor: grabbing; pointer-events: auto; user-select: none;
+    filter: drop-shadow(0 5px 6px rgba(90, 60, 40, .35)); z-index: 7;
+  }
+  .drag-candy img { width: 100%; height: 100%; display: block; pointer-events: none; }
+  .drag-candy.dragging { animation: pulsate .3s ease-in-out infinite; }
+  @keyframes pulsate { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+  .drag-candy.pop-in { animation: popIn .45s cubic-bezier(.2, .9, .3, 1.25) both; }
+  @keyframes popIn { 0% { transform: scale(0); } 60% { transform: scale(1.28); } 80% { transform: scale(.9); } 100% { transform: scale(1); } }
+  .drag-candy.land { animation: land .5s cubic-bezier(.2, .9, .3, 1.2) both; }
+  @keyframes land { 0% { transform: translateY(-26px) scale(1.15); } 55% { transform: translateY(6px) scale(.94); } 78% { transform: translateY(-4px) scale(1.04); } 100% { transform: translateY(0) scale(1); } }
+  .drag-candy.eat { animation: eatFly .5s ease-in forwards; }
+  @keyframes eatFly { 0% { transform: scale(1); opacity: 1; } 70% { transform: scale(.2); opacity: .9; } 100% { transform: scale(0); opacity: 0; } }
+  
+  .steam {
+    position: absolute; width: 80px; height: 80px; background: radial-gradient(circle, rgba(255,255,255,0.95) 15%, rgba(255,255,255,0) 65%);
+    border-radius: 50%; pointer-events: none; z-index: 10; animation: steamUpTrail 1.8s ease-out forwards; 
+  }
+  @keyframes steamUpTrail { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.9; } 100% { transform: translate(80px, -350px) scale(4.5); opacity: 0; } }
+
+  /* =========================================
+     === 6. 全局悬浮 返回/跳过 UI 系统 ===
+     ========================================= */
+  #sysUI { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 9999; pointer-events: none; }
+  .sys-btn {
+    position: absolute; top: 40px; background: rgba(0,0,0,0.4); color: #fff; padding: 15px 40px;
+    border-radius: 40px; font-size: 36px; font-weight: bold; cursor: pointer; border: 4px solid #fff;
+    opacity: 0; transition: opacity 0.3s ease; pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .sys-btn:hover { background: rgba(0,0,0,0.6); }
+  .sys-btn:active { transform: scale(0.95); }
+  .sys-btn.show { opacity: 1; pointer-events: auto; }
+  .sys-btn.left { left: 40px; }
+  .sys-btn.right { right: 40px; }
+</style>
+</head>
+<body>
+
+  <div id="stage">
+    
+    <!-- 加载动画层 -->
+    <div id="loadingScreen">
+      <div class="ferris-wheel-container">
+        <div class="fw-stand"></div>
+        <div class="fw-wheel" id="fwWheel">
+          <div class="fw-spoke" style="transform: rotate(0deg)"></div><div class="fw-spoke" style="transform: rotate(45deg)"></div>
+          <div class="fw-spoke" style="transform: rotate(90deg)"></div><div class="fw-spoke" style="transform: rotate(135deg)"></div>
+          <!-- 修改处：xgs.png 添加内联样式边框颜色橙色 -->
+          <div class="fw-cabin-anchor" style="transform: rotate(0deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: orange;"><img src="assets/xgs.png" alt="" style="width: 200px; margin-bottom: -30px;"></div></div>
+          <div class="fw-cabin-anchor" style="transform: rotate(45deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy2.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+          <!-- 修改处：candy9.png 添加内联样式边框颜色蓝色 -->
+          <div class="fw-cabin-anchor" style="transform: rotate(90deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: #4AA5E8;"><img src="assets/candy9.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+          <div class="fw-cabin-anchor" style="transform: rotate(135deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy1.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+          <!-- 修改处：candy8.png 添加内联样式边框颜色蓝色 -->
+          <div class="fw-cabin-anchor" style="transform: rotate(180deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: #4AA5E8;"><img src="assets/candy8.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+          <div class="fw-cabin-anchor" style="transform: rotate(225deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy6.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+          <!-- 修改处：candy7.png 添加内联样式边框颜色蓝色 -->
+          <div class="fw-cabin-anchor" style="transform: rotate(270deg) translateY(-300px);"><div class="fw-cabin fw-cb" style="border-color: #4AA5E8;"><img src="assets/candy7.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+          <div class="fw-cabin-anchor" style="transform: rotate(315deg) translateY(-300px);"><div class="fw-cabin fw-cb"><img src="assets/candy5.png" alt="" style="width: 110px; margin-bottom: 10px;"></div></div>
+        </div>
+        <div class="fw-center"></div>
+      </div>
+      <div class="loading-prog-wrap">
+        <div class="loading-prog-bg"><div class="loading-prog-fill" id="pbFill"></div></div>
+        <div class="loading-prog-head" id="pbHeadWrap">
+          <div class="loading-prog-text" id="pbText">0%</div><img src="assets/xgs.png" alt="">
+        </div>
+      </div>
+    </div>
+
+    <!-- 开始UI界面 -->
+    <div id="startUI">
+      <img class="start-bg" src="assets/开始界面背景_画板 1.png" alt="">
+      <div class="cloud c1"><img src="assets/cloud.png" alt=""></div>
+      <div class="cloud c2"><img src="assets/cloud.png" alt=""></div>
+      <div class="cloud c3"><img src="assets/cloud.png" alt=""></div>
+      <div id="mainScreen">
+        <div class="title-wrap"><img class="main-title" src="assets/number match.png" alt="数量对应"></div>
+        <div class="btn-wrap"><img class="start-btn" id="btnStartGame" src="assets/start.png" alt="开始游戏"></div>
+      </div>
+      <div id="roleScreen">
+        <div class="role-title">
+          <img src="assets/candy8.png" class="title-icon" alt="">
+          <span>请选择</span>
+          <img src="assets/candy6.png" class="title-icon" alt="">
+        </div>
+        <div class="role-options">
+          <div class="role-card boy" id="btnBoy"><div class="r-icon">👦🏻</div><div class="r-text">男宝宝</div></div>
+          <div class="role-card girl" id="btnGirl"><div class="r-icon">👧🏻</div><div class="r-text">女宝宝</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 结算过渡 UI 界面 -->
+    <div id="endScreen">
+      <img class="start-bg" src="assets/开始界面背景_画板 1.png" alt="">
+      <div class="cloud c1"><img src="assets/cloud.png" alt=""></div>
+      <div class="cloud c2"><img src="assets/cloud.png" alt=""></div>
+      <div class="cloud c3"><img src="assets/cloud.png" alt=""></div>
+      <div class="end-actions">
+        <!-- 修改了返回按钮的文本，并会在代码逻辑中跳回角色选择页 -->
+        <div class="end-btn boy-color" id="btnBack">◀ 返回选择</div>
+        <div class="end-btn" id="btnContinue">继续答题 ▶</div>
+      </div>
+    </div>
+
+    <!-- 视频动画容器 -->
+    <div id="blackBase"></div>
+    <div id="videoContainer">
+      <!-- 移至开始界面后的主过场动画 -->
+      <video id="mainIntro" class="fullscreen-video" src="assets/intro.mp4" playsinline style="display:none;"></video>
+      <!-- 共享反馈视频 -->
+      <video id="pfVideo" class="fullscreen-video" src="assets/pf2.mp4" playsinline style="display:none;"></video>
+      <video id="nfVideo" class="fullscreen-video" src="assets/nf.mp4" playsinline style="display:none;"></video>
+      <div class="vignette-overlay"></div>
+    </div>
+
+    <!-- 公共背景与云朵 -->
+    <img class="bg" src="assets/bg.png" alt="">
+    <div class="cloud c1"><img src="assets/cloud.png" alt=""></div>
+    <div class="cloud c2"><img src="assets/cloud.png" alt=""></div>
+    <div class="cloud c3"><img src="assets/cloud.png" alt=""></div>
+
+    <!-- ================== 女宝宝方向交互界面 ================== -->
+    <div id="gameScene_girl" class="game-scene">
+      <div class="monster" id="monster_girl">
+        <div class="m-prog" id="mProg_girl"></div>
+        <div class="monster-inner" id="monsterInner_girl">
+          <img class="m-img" src="assets/monster.png" alt="">
+          <div class="eye l"></div><div class="eye r"></div><div class="mouth" id="mouth_girl"></div>
+        </div>
+      </div>
+
+      <div class="train" id="train_girl">
+        <div class="head-wrap" id="headWrap_girl"><img src="assets/train-head.png" alt=""></div>
+        <div class="car" id="car2_girl">
+          <img src="assets/car.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car1.png" alt="" style="position: absolute; bottom: 0; left: -14%; width: 130%; z-index: 1;">
+          <img class="car-front" src="assets/car-front.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+        <div class="car" id="car3_girl">
+          <img src="assets/car.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car2.png" alt="" style="position: absolute; bottom: 0; left: -16%; width: 138%; z-index: 1;">
+          <img class="car-front" src="assets/car-front.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+        <div class="car" id="car4_girl">
+          <img src="assets/car.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car3.png" alt="" style="position: absolute; bottom: 0; left: -14.5%; width: 135%; z-index: 1;">
+          <img class="car-front" src="assets/car-front.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+        <div class="car" id="car5_girl">
+          <img src="assets/car.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car4.png" alt="" style="position: absolute; bottom: 0; left: -13%; width: 130%; z-index: 1;">
+          <img class="car-front" src="assets/car-front.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+      </div>
+
+      <div class="bubble" id="bubble_girl">
+        <span class="bt" id="bubbleText_girl">好吃！</span>
+        <span class="prog" id="prog_girl">0/0</span>
+      </div>
+
+      <div class="gameUI" id="gameUI_girl">
+        <img id="btnOneLess_girl" src="assets/one less.png" class="game-action-btn left-btn" alt="少一个">
+        <img id="btnOK_girl" src="assets/ok.png" class="game-action-btn right-btn" alt="确认答题">
+      </div>
+
+      <div id="fx_girl" class="fx-layer"></div>
+      
+      <div id="candySrcs_girl" hidden>
+        <img src="assets/candy1.png" alt=""><img src="assets/candy2.png" alt=""><img src="assets/candy3.png" alt="">
+        <img src="assets/candy4.png" alt=""><img src="assets/candy5.png" alt=""><img src="assets/candy6.png" alt="">
+      </div>
+    </div>
+
+
+    <!-- ================== 男宝宝方向交互界面 ================== -->
+    <div id="gameScene_boy" class="game-scene">
+      <div class="monster" id="monster_boy">
+        <div class="m-prog" id="mProg_boy"></div>
+        <div class="monster-inner" id="monsterInner_boy">
+          <img class="m-img" src="assets/monster.png" alt="">
+          <div class="eye l"></div><div class="eye r"></div><div class="mouth" id="mouth_boy"></div>
+        </div>
+      </div>
+
+      <div class="train" id="train_boy">
+        <div class="head-wrap" id="headWrap_boy"><img src="assets/train-head1.png" alt=""></div>
+        <div class="car" id="car2_boy">
+          <img src="assets/car5.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car5.png" alt="" style="position: absolute; bottom: 0; left: -4%; width: 123%; z-index: 1;">
+          <img class="car-front" src="assets/car-front1.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+        <div class="car" id="car3_boy">
+          <img src="assets/car5.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car5.png" alt="" style="position: absolute; bottom: 0; left: -4%; width: 123%; z-index: 1;">
+          <img class="car-front" src="assets/car-front1.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+        <div class="car" id="car4_boy">
+          <img src="assets/car5.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car5.png" alt="" style="position: absolute; bottom: 0; left: -4%; width: 123%; z-index: 1;">
+          <img class="car-front" src="assets/car-front1.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+        <div class="car" id="car5_boy">
+          <img src="assets/car5.png" alt="" style="width: 100%; display: block; opacity: 0; pointer-events: none;">
+          <img class="car-bg" src="assets/car5.png" alt="" style="position: absolute; bottom: 0; left: -4%; width: 123%; z-index: 1;">
+          <img class="car-front" src="assets/car-front1.png" alt="" style="position: absolute; bottom: 0; left: 0; width: 100%; top: auto;">
+        </div>
+      </div>
+
+      <div class="bubble" id="bubble_boy">
+        <span class="bt" id="bubbleText_boy">好吃！</span>
+        <span class="prog" id="prog_boy">0/0</span>
+      </div>
+
+      <div class="gameUI" id="gameUI_boy">
+        <img id="btnOneLess_boy" src="assets/one less.png" class="game-action-btn left-btn" alt="少一个">
+        <img id="btnOK_boy" src="assets/ok.png" class="game-action-btn right-btn" alt="确认答题">
+      </div>
+
+      <div id="fx_boy" class="fx-layer"></div>
+      
+      <div id="candySrcs_boy" hidden>
+        <img src="assets/candy7.png" alt=""><img src="assets/candy8.png" alt=""><img src="assets/candy9.png" alt="">
+        <img src="assets/candy10.png" alt="">
+      </div>
+    </div>
+    <!-- ========================================================================= -->
+
+    <!-- 全局悬浮 返回/跳过 按钮层 -->
+    <div id="sysUI">
+      <div id="sysBtnBack" class="sys-btn left">返回</div>
+      <div id="sysBtnSkip" class="sys-btn right">跳过</div>
+    </div>
+
+    <!-- 背景音乐：循环播放（自动播放） -->
+    <audio id="bgm" src="assets/bgm.mp3" loop autoplay></audio>
+  </div>
+
+<script>
+  
+  (function () {
+    let voiceList = [];
+speechSynthesis.onvoiceschanged = ()=>{
+    voiceList = speechSynthesis.getVoices();
+};
+
+function playKidVoice(msg){
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(msg);
+    u.pitch = 1.4;
+    u.rate = 0.8;
+    u.volume = 1;
+    // 选中康康小男孩语音
+    const targetVoice = voiceList.find(v=>v.name.includes("Kangkang")) || voiceList[0];
+    if(targetVoice) u.voice = targetVoice;
+    speechSynthesis.speak(u);
+}
+    // ===== 语音代码结束 =====
+    
+    var stage   = document.getElementById('stage');
+    
+    // UI 控制变量
+    var loadingScreen = document.getElementById('loadingScreen');
+    var startUI = document.getElementById('startUI');
+    var mainScreen = document.getElementById('mainScreen');
+    var roleScreen = document.getElementById('roleScreen');
+    var endScreen = document.getElementById('endScreen');
+
+    var btnStartGame = document.getElementById('btnStartGame');
+    var btnBoy = document.getElementById('btnBoy');
+    var btnGirl = document.getElementById('btnGirl');
+    var btnBack = document.getElementById('btnBack');
+    var btnContinue = document.getElementById('btnContinue');
+
+    // 视频与音频
+    var bgm = document.getElementById('bgm');
+    var videoContainer = document.getElementById('videoContainer');
+    var blackBase = document.getElementById('blackBase');
+    var mainIntro = document.getElementById('mainIntro');
+    var pfVideo = document.getElementById('pfVideo');
+    var nfVideo = document.getElementById('nfVideo');
+    var trainSound = new Audio('assets/ts.mp3'); 
+
+    // 全局状态与引擎变量
+    var appState = 'loading'; // 状态: loading, main, intro, role, game, endVideo, end
+    var currentMode = 'girl'; 
+    var activeEngine = null;  
+    var gameEngines = {};     
+
+    var scale = 1;
+    function fit() {
+      scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      stage.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+    }
+    window.addEventListener('resize', fit);
+    fit();
+
+    // ==========================================
+    // === 通用语音合成发音函数 ===
+    // ==========================================
+    
+
+    function playVoice(text) {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text.toString());
+        u.pitch = 1.8;
+        u.rate = 0.82;
+        u.volume = 1;
+        // 优先匹配Kangkang康康小男孩语音
+        const targetVoice = voiceList.find(v=>v.name.includes("Kangkang")) || voiceList[0];
+        if(targetVoice) u.voice = targetVoice;
+        speechSynthesis.speak(u);
+    }
+
+    // ==========================================
+    // === 0. 全局点击呼出 返回/跳过 系统 ===
+    // ==========================================
+    var sysUI = document.getElementById('sysUI');
+    var sysBtnBack = document.getElementById('sysBtnBack');
+    var sysBtnSkip = document.getElementById('sysBtnSkip');
+    var sysTimer = null;
+
+    stage.addEventListener('click', function(e) {
+        if(appState === 'loading') return;
+        if(e.target === sysBtnBack || e.target === sysBtnSkip) return;
+        
+        sysBtnBack.classList.add('show');
+        sysBtnSkip.classList.add('show');
+        clearTimeout(sysTimer);
+        sysTimer = setTimeout(function(){
+            sysBtnBack.classList.remove('show');
+            sysBtnSkip.classList.remove('show');
+        }, 3500);
+    });
+
+    function hideSysBtns() {
+        sysBtnBack.classList.remove('show');
+        sysBtnSkip.classList.remove('show');
+        clearTimeout(sysTimer);
+    }
+
+    // ==== 处理右上角【跳过】逻辑 ====
+    sysBtnSkip.addEventListener('click', function(e) {
+        e.stopPropagation();
+        hideSysBtns();
+        if(appState === 'main') {
+            btnStartGame.click();
+        } else if(appState === 'intro' || appState === 'endVideo') {
+            document.querySelector('.vignette-overlay').click();
+        } else if(appState === 'role') {
+            btnGirl.click(); // 默认快捷选择女宝宝跳过
+        } else if(appState === 'game') {
+            if(activeEngine) activeEngine.btnOK.click(); // 跳过直接模拟答题完成
+        } else if(appState === 'end') {
+            btnContinue.click();
+        }
+    });
+
+    // ==== 处理左上角【返回】逻辑 ====
+    sysBtnBack.addEventListener('click', function(e) {
+        e.stopPropagation();
+        hideSysBtns();
+        if(appState === 'intro') {
+            if(activeVideo && !activeVideo.paused) activeVideo.pause();
+            transitionFromVideo('slide', function(){});
+            roleScreen.style.display = 'none';
+            mainScreen.style.display = 'flex';
+            appState = 'main';
+        } else if(appState === 'role') {
+            roleScreen.style.display = 'none';
+            mainScreen.style.display = 'flex';
+            appState = 'main';
+        } else if(appState === 'game') {
+            if(activeEngine) {
+                activeEngine.resetGameEngine();
+                activeEngine.scene.style.display = 'none';
+            }
+            startUI.style.display = 'flex';
+            startUI.classList.remove('fade-out');
+            mainScreen.style.display = 'none';
+            roleScreen.style.display = 'flex';
+            appState = 'role';
+        } else if(appState === 'endVideo') {
+            if(activeVideo && !activeVideo.paused) activeVideo.pause();
+            transitionFromVideo('iris', function(){});
+            if(activeEngine) { activeEngine.resetGameEngine(); activeEngine.initGame(); }
+            appState = 'game';
+        } else if(appState === 'end') {
+            btnBack.click();
+        }
+    });
+
+    // 全局移动端和鼠标坐标解构提取
+    function toStage(e) {
+      var evt = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
+      var sr = stage.getBoundingClientRect();
+      return { x: (evt.clientX - sr.left) / scale, y: (evt.clientY - sr.top) / scale };
+    }
+
+    // ==========================================
+    // === 1. 背景音乐：强行开局自动播放 ===
+    // ==========================================
+    bgm.volume = 0.5;
+    var playPromise = bgm.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(function () {
+        var startBgm = function () {
+          bgm.play().catch(function(){});
+          document.removeEventListener('mousedown', startBgm);
+          document.removeEventListener('touchstart', startBgm);
+        };
+        document.addEventListener('mousedown', startBgm);
+        document.addEventListener('touchstart', startBgm);
+      });
+    }
+
+    // ==========================================
+    // === 2. 加载界面：摩天轮及进度条联动 ===
+    // ==========================================
+    var loadDuration = 6800;
+    var loadStartTime = null;
+    var fwWheel = document.getElementById('fwWheel');
+    var fwCabins = document.querySelectorAll('.fw-cb');
+    var cabinAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+
+    function animateLoader(timestamp) {
+      if (!loadStartTime) loadStartTime = timestamp;
+      var elapsed = timestamp - loadStartTime;
+      var progress = Math.min((elapsed / loadDuration) * 100, 100);
+      
+      document.getElementById('pbFill').style.width = progress + '%';
+      document.getElementById('pbHeadWrap').style.left = progress + '%';
+      document.getElementById('pbText').innerText = Math.floor(progress) + '%';
+      
+      var wheelAngle = progress * 3.6;
+      fwWheel.style.transform = 'rotate(' + wheelAngle + 'deg)';
+      
+      fwCabins.forEach(function(cabin, idx) {
+         var totalAngle = wheelAngle + cabinAngles[idx];
+         cabin.style.transform = 'rotate(' + (-totalAngle) + 'deg)';
+      });
+      
+      if (progress < 100) {
+        requestAnimationFrame(animateLoader);
+      } else {
+        loadingScreen.classList.add('hide');
+        startUI.style.display = 'flex';
+        void startUI.offsetWidth; 
+        startUI.classList.add('active'); 
+        appState = 'main';
+        setTimeout(function() { loadingScreen.style.display = 'none'; }, 500);
+      }
+    }
+    requestAnimationFrame(animateLoader);
+
+    // ==========================================
+    // === 3. 界面切换与视频处理 ===
+    // ==========================================
+    var activeVideo = null;
+    function playVideo(vidElement, callback, transitionType) {
+      activeVideo = vidElement;
+      blackBase.style.display = 'block';
+      blackBase.style.opacity = '1';
+      videoContainer.style.display = 'block';
+      
+      videoContainer.className = '';
+      videoContainer.style.transform = '';
+      videoContainer.style.clipPath = '';
+      
+      if(transitionType === 'slide') {
+          videoContainer.classList.add('transition-slide');
+      } else {
+          videoContainer.classList.add('transition-iris');
+      }
+      
+      mainIntro.style.display = 'none';
+      pfVideo.style.display = 'none';
+      nfVideo.style.display = 'none';
+      
+      vidElement.style.display = 'block';
+      vidElement.currentTime = 0;
+      
+      vidElement.play().catch(function(e){ 
+         setTimeout(function(){ callback(transitionType); }, 500); 
+      });
+      vidElement.onended = function() { callback(transitionType); };
+    }
+
+    function transitionFromVideo(transitionType, postCb) {
+      if(transitionType === 'slide') {
+          videoContainer.classList.add('slide-left');
+          blackBase.style.opacity = '0'; // 滑动时立刻去除遮罩配合底图展现
+          setTimeout(function () { 
+            videoContainer.style.display = 'none'; 
+            blackBase.style.display = 'none';
+            if(postCb) postCb();
+          }, 800);
+      } else {
+          videoContainer.classList.add('shrink-iris');
+          setTimeout(function () { 
+            videoContainer.style.display = 'none'; 
+            blackBase.style.opacity = '0'; 
+            setTimeout(function() { blackBase.style.display = 'none'; }, 300);
+            if(postCb) postCb();
+          }, 500);
+      }
+    }
+
+    // 点击开始游戏播放引言视频，再进入选角
+    btnStartGame.addEventListener('click', function() {
+      appState = 'intro';
+      mainScreen.style.display = 'none';
+      playVideo(mainIntro, function(tType) {
+        transitionFromVideo(tType, function(){
+           appState = 'role';
+        });
+        roleScreen.style.display = 'flex';
+        // 触发无缝滑入动画
+        roleScreen.classList.remove('slide-in');
+        void roleScreen.offsetWidth;
+        roleScreen.classList.add('slide-in');
+      }, 'slide');
+    });
+
+    function launchMode(mode) {
+      appState = 'game';
+      currentMode = mode;
+      activeEngine = gameEngines[mode];
+
+      startUI.classList.add('fade-out');
+      setTimeout(function() { 
+        startUI.style.display = 'none'; 
+        roleScreen.style.display = 'none'; // 为后续返回做清除准备
+      }, 400);
+      
+      document.getElementById('gameScene_girl').style.display = (mode === 'girl') ? 'block' : 'none';
+      document.getElementById('gameScene_boy').style.display = (mode === 'boy') ? 'block' : 'none';
+      
+      activeEngine.initGame(); 
+    }
+
+    btnBoy.addEventListener('click', function() { launchMode('boy'); });
+    btnGirl.addEventListener('click', function() { launchMode('girl'); });
+
+    // 点击屏幕中原本的视口阴影跳过视频 (兼容双重跳过机制)
+    document.querySelector('.vignette-overlay').addEventListener('click', function(e) {
+       e.stopPropagation(); // 阻止触发全局 sysUI
+       if(activeVideo && activeVideo.style.display === 'block' && !activeVideo.paused) { 
+         activeVideo.pause(); 
+         var isSlide = videoContainer.classList.contains('transition-slide');
+         var tType = isSlide ? 'slide' : 'iris';
+
+         if(activeVideo.id === 'mainIntro') {
+            transitionFromVideo(tType, function(){
+                appState = 'role';
+            });
+            roleScreen.style.display = 'flex';
+            roleScreen.classList.remove('slide-in');
+            void roleScreen.offsetWidth;
+            roleScreen.classList.add('slide-in');
+         } else {
+            // 是结果反馈视频跳过，则直接出结果面板
+            transitionFromVideo(tType, function() {
+                appState = 'end';
+                endScreen.style.display = 'flex';
+            });
+         }
+       }
+    }); 
+
+    // 结束界面返回按钮 —— 返回选角界面
+    btnBack.addEventListener('click', function() {
+      endScreen.style.display = 'none';
+      activeEngine.resetGameEngine();
+      document.getElementById('gameScene_girl').style.display = 'none';
+      document.getElementById('gameScene_boy').style.display = 'none';
+      
+      // 返回角色选择
+      mainScreen.style.display = 'none';
+      roleScreen.style.display = 'flex';
+      
+      startUI.style.display = 'flex';
+      startUI.classList.remove('fade-out');
+      
+      // 添加滑入效果让返回更自然
+      roleScreen.classList.remove('slide-in');
+      void roleScreen.offsetWidth;
+      roleScreen.classList.add('slide-in');
+      
+      appState = 'role';
+    });
+
+    btnContinue.addEventListener('click', function() {
+      appState = 'game';
+      endScreen.style.display = 'none';
+      activeEngine.resetGameEngine();
+      activeEngine.initGame(); 
+    });
+
+
+    // ==========================================
+    // === 4. 游戏引擎工厂 (双实例无变动) ===
+    // ==========================================
+    
+    function buildGameEngine(suffix) {
+        var eng = {
+            targetN: 1 + Math.floor(Math.random() * 10),
+            collected: 0,
+            complete: false,
+            dragEl: null,
+            scene: document.getElementById('gameScene' + suffix),
+            fxLayer: document.getElementById('fx' + suffix),
+            monsterInner: document.getElementById('monsterInner' + suffix),
+            mProg: document.getElementById('mProg' + suffix),
+            mouth: document.getElementById('mouth' + suffix),
+            bubbleText: document.getElementById('bubbleText' + suffix),
+            progEl: document.getElementById('prog' + suffix),
+            gameUI: document.getElementById('gameUI' + suffix),
+            headWrap: document.getElementById('headWrap' + suffix),
+            btnOneLess: document.getElementById('btnOneLess' + suffix),
+            btnOK: document.getElementById('btnOK' + suffix),
+            cars: [
+                document.getElementById('car2' + suffix),
+                document.getElementById('car3' + suffix),
+                document.getElementById('car4' + suffix),
+                document.getElementById('car5' + suffix)
+            ],
+            CANDY: Array.prototype.map.call(
+                document.querySelectorAll('#candySrcs' + suffix + ' img'),
+                function (im) { return im.getAttribute('src'); }
+            )
+        };
+
+        eng.renderBalls = function() {
+            if (eng.complete) return; 
+            eng.mProg.innerHTML = '';
+            var totalBalls = Math.max(eng.targetN, eng.collected);
+            for(var i = 0; i < totalBalls; i++) {
+                var ball = document.createElement('div');
+                ball.className = 'm-ball';
+                if (i < eng.collected) ball.classList.add('active');
+                eng.mProg.appendChild(ball);
+            }
+        };
+
+        eng.initGame = function() {
+            eng.complete = false;
+            eng.collected = 0;
+            eng.mProg.style.opacity = '0';
+            eng.bubbleText.textContent = '好吃！';
+            eng.progEl.textContent = '0/' + eng.targetN;
+            eng.monsterInner.classList.remove('happy-dance');
+            eng.renderBalls();
+            eng.gameUI.style.display = 'block';
+            
+            // 开局立刻播报“好吃！”
+            playVoice('好吃！');
+
+            // 原本的 2秒 现调整为 5秒 的等待停留
+            setTimeout(function() {
+                if (!eng.complete) {
+                    var reqText = '请给我' + eng.targetN + '个糖果';
+                    eng.bubbleText.textContent = reqText;
+                    playVoice(reqText); // 播报：“请给我X个糖果”
+                    eng.mProg.style.opacity = '1'; 
+                }
+            }, 5000); 
+        };
+
+        eng.resetGameEngine = function() {
+            eng.targetN = 1 + Math.floor(Math.random() * 10);
+            var dragged = eng.fxLayer.querySelectorAll('.drag-candy');
+            dragged.forEach(function(c) { c.remove(); });
+        };
+
+        eng.btnOneLess.addEventListener('click', function() {
+            if (eng.complete || eng.collected <= 0) return;
+            eng.collected--;
+            eng.progEl.textContent = eng.collected + '/' + eng.targetN;
+            eng.renderBalls();
+        });
+
+        eng.btnOK.addEventListener('click', function() {
+            if (eng.complete) return;
+            eng.complete = true; 
+            eng.gameUI.style.display = 'none'; 
+            eng.bubbleText.textContent = '好吃好吃！';
+            eng.monsterInner.classList.add('happy-dance');
+            playVoice('好吃好吃！');
+            
+            setTimeout(function() {
+                var isWin = (eng.collected === eng.targetN);
+                var targetVid = isWin ? pfVideo : nfVideo;
+                appState = 'endVideo';
+                playVideo(targetVid, function(tType) {
+                    transitionFromVideo(tType, function() {
+                        appState = 'end';
+                        endScreen.style.display = 'flex';
+                    });
+                }, 'iris');
+            }, 3000);
+        });
+
+        eng.mouthPos = function() {
+            var mr = eng.mouth.getBoundingClientRect();
+            var sr = stage.getBoundingClientRect();
+            return { x: (mr.left - sr.left) / scale + (mr.width / scale) * 0.5, y: (mr.top  - sr.top) / scale + (mr.height / scale) * 0.5 };
+        };
+
+        function handleHeadClick(e) {
+            if (eng.complete) return;
+            var playP = trainSound.play();
+            if (playP !== undefined) playP.catch(function(err){});
+            var hr = eng.headWrap.getBoundingClientRect();
+            var sr = stage.getBoundingClientRect();
+            var originX = (hr.left - sr.left) / scale + (hr.width / scale) * 0.15;
+            var originY = (hr.top - sr.top) / scale + (hr.height / scale) * 0.1;
+            for (let i = 0; i < 5; i++) {
+                setTimeout(function() {
+                    var steam = document.createElement('div');
+                    steam.className = 'steam';
+                    steam.style.left = (originX + (Math.random() - 0.5) * 20) + 'px';
+                    steam.style.top = (originY + (Math.random() - 0.5) * 10) + 'px';
+                    eng.fxLayer.appendChild(steam);
+                    setTimeout(function() { if(steam.parentNode) steam.parentNode.removeChild(steam); }, 1800);
+                }, i * 200); 
+            }
+        }
+        eng.headWrap.addEventListener('mousedown', handleHeadClick);
+        eng.headWrap.addEventListener('touchstart', handleHeadClick, {passive: true});
+
+        eng.setMonsterScale = function(bodyS, isMouthOpen) {
+            if(eng.monsterInner.classList.contains('happy-dance')) return;
+            eng.monsterInner.style.transform  = 'scale(' + bodyS + ')';
+            if(isMouthOpen) eng.mouth.classList.add('open');
+            else { eng.mouth.classList.remove('open'); eng.mouth.style.transform = 'scale(1)'; }
+        };
+
+        eng.updateMonster = function(d) {
+            if (eng.complete) { eng.setMonsterScale(1, false); return; }
+            var k = Math.max(0, Math.min(1, 1 - d / 320));
+            var bodyS = 1 + k * 0.12; 
+            var isMouthOpen = k > 0.05; 
+            if (isMouthOpen) {
+                eng.mouth.classList.add('open');
+                eng.mouth.style.transform = 'scale(' + (1 + k * 0.8) + ')';
+            } else {
+                eng.mouth.classList.remove('open');
+                eng.mouth.style.transform = 'scale(1)';
+            }
+            if(!eng.monsterInner.classList.contains('happy-dance')) {
+                eng.monsterInner.style.transform  = 'scale(' + bodyS + ')';
+            }
+        };
+
+        eng.makeDragCandy = function(src, x, y, fromCar) {
+            var el = document.createElement('div');
+            el.className = 'drag-candy'; el.innerHTML = '<img src="' + src + '" alt="">';
+            el.style.left = x + 'px'; el.style.top  = y + 'px';
+            eng.fxLayer.appendChild(el);
+            el._src = src; el._fromCar = fromCar;
+            
+            function handleDragStart(e) {
+                e.preventDefault(); 
+                eng.startDrag(el, e); 
+            }
+            el.addEventListener('mousedown', handleDragStart);
+            el.addEventListener('touchstart', handleDragStart, {passive: false});
+            return el;
+        };
+
+        eng.startDrag = function(el, e) {
+            if (eng.complete) return;
+            eng.dragEl = el;
+            if (el.classList.contains('pop-in')) {
+                setTimeout(function () { if (eng.dragEl === el) el.classList.add('dragging'); }, 460);
+            } else { el.classList.add('dragging'); }
+            eng.moveDrag(e);
+        };
+
+        eng.moveDrag = function(e) {
+            if (!eng.dragEl) return;
+            var p = toStage(e);
+            eng.dragEl.style.left = p.x + 'px'; eng.dragEl.style.top  = p.y + 'px';
+            var mp = eng.mouthPos();
+            eng.updateMonster(Math.hypot(p.x - mp.x, p.y - mp.y));
+        };
+
+        eng.endDrag = function(e) {
+            if (!eng.dragEl) return;
+            var el = eng.dragEl;
+            var p = toStage(e);
+            var mp = eng.mouthPos();
+            var d = Math.hypot(p.x - mp.x, p.y - mp.y);
+            el.classList.remove('dragging');
+
+            if (d < 140 && !eng.complete) {
+                el.classList.add('eat');
+                el.style.left = mp.x + 'px'; el.style.top  = mp.y + 'px';
+                setTimeout(function () { el.remove(); }, 520);
+                eng.setMonsterScale(1, false); 
+                
+                eng.collected++;
+                eng.progEl.textContent = eng.collected + '/' + eng.targetN;
+                
+                var ecsSound = new Audio('assets/ecs.mp3');
+                var playEcs = ecsSound.play();
+                var currentCount = eng.collected; 
+                // 统一复用 playVoice 进行数字播报
+                if (playEcs !== undefined) {
+                    playEcs.then(function() { ecsSound.onended = function() { playVoice(currentCount); }; })
+                           .catch(function(err){ playVoice(currentCount); });
+                } else { ecsSound.onended = function() { playVoice(currentCount); }; }
+                
+                eng.renderBalls(); 
+                eng.refillCar(el._fromCar); 
+            } else {
+                el.classList.add('land');
+                setTimeout(function () { el.classList.remove('land'); }, 520);
+                eng.setMonsterScale(1, false); 
+            }
+            eng.dragEl = null;
+        };
+
+        eng.refillCar = function(fromCar) {
+            var host = fromCar || eng.cars[Math.floor(Math.random() * eng.cars.length)];
+            var c = document.createElement('img');
+            c.className = 'candy'; c.src = eng.CANDY[Math.floor(Math.random() * eng.CANDY.length)];
+            c.style.left = (5 + Math.random() * 55) + '%'; c.style.top  = (-15 + Math.random() * 45) + '%';
+            eng.bindCandy(c); host.appendChild(c);
+        };
+
+        eng.bindCandy = function(img) {
+            function handleCandyClick(e) {
+                e.preventDefault(); e.stopPropagation();
+                var p = toStage(e);
+                var host = img.parentElement;
+                img.remove();
+                eng.startDrag(eng.makeDragCandy(img.src, p.x, p.y, host), e);
+            }
+            img.addEventListener('mousedown', handleCandyClick);
+            img.addEventListener('touchstart', handleCandyClick, {passive: false});
+        };
+
+        eng.bindCarClick = function(carEl) {
+            function handleCarClick(e) {
+                if (eng.complete) return;
+                var t = e.target;
+                if (t.classList && (t.classList.contains('candy') || t.classList.contains('car-front'))) return;
+                e.preventDefault();
+                var p = toStage(e);
+                var src = eng.CANDY[Math.floor(Math.random() * eng.CANDY.length)];
+                var el = eng.makeDragCandy(src, p.x, p.y, carEl);
+                el.classList.add('pop-in');
+                eng.startDrag(el, e);
+            }
+            carEl.addEventListener('mousedown', handleCarClick);
+            carEl.addEventListener('touchstart', handleCarClick, {passive: false});
+        };
+
+        for (var j = 0; j < eng.cars.length; j++) eng.bindCarClick(eng.cars[j]);
+
+        return eng;
+    }
+
+    // 初始化两个引擎实例
+    gameEngines['girl'] = buildGameEngine('_girl');
+    gameEngines['boy'] = buildGameEngine('_boy');
+
+    // 全局拖拽事件分发
+    document.addEventListener('mousemove', function(e) {
+        if(activeEngine && activeEngine.dragEl) activeEngine.moveDrag(e);
+    });
+    document.addEventListener('touchmove', function(e) {
+        if(activeEngine && activeEngine.dragEl) {
+            e.preventDefault();
+            activeEngine.moveDrag(e);
+        }
+    }, {passive: false});
+
+    document.addEventListener('mouseup', function(e) {
+        if(activeEngine && activeEngine.dragEl) activeEngine.endDrag(e);
+    });
+    document.addEventListener('touchend', function(e) {
+        if(activeEngine && activeEngine.dragEl) activeEngine.endDrag(e);
+    });
+
+  })();
+</script>
+</body>
+</html>
